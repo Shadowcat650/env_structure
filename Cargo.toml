@@ -1,0 +1,9 @@
+[package]
+name = "env_structure"
+version = "0.1.0"
+edition = "2024"
+license = "CC0-1.0"
+
+[dependencies]
+env_structure_macro = { path = "env_structure_macro" }
+thiserror = "2.0.18"
