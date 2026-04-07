@@ -8,6 +8,7 @@ license = "CC0-1.0"
 proc-macro = true
 
 [dependencies]
-quote = "1.0.45"
+quote = "1"
 proc-macro2 = "1"
-syn = "2.0.117"
+proc-macro-crate = "3"
+syn = "2"

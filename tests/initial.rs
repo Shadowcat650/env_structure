@@ -1,10 +1,4 @@
-use env_structure_macro::EnvStructure;
-
-mod env_structure {
-    pub use crate::*;
-}
-
-#[derive(EnvStructure)]
+#[derive(env_structure::EnvStructure)]
 struct Env {
     gcp_project_id: String,
 
@@ -26,7 +20,7 @@ struct Env {
     emulator_env: Option<EmulatorEnv>,
 }
 
-#[derive(EnvStructure)]
+#[derive(env_structure::EnvStructure)]
 struct EmulatorEnv {
     firestore_emulator_host: String,
     firebase_auth_emulator_host: String,
