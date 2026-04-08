@@ -96,7 +96,7 @@ fn derive_inner(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream
 
     let name = input.ident;
     Ok(quote! {
-        impl env_structure::EnvStructure for #name {
+        impl EnvStructure for #name {
             fn parse(ctx: &mut env_structure::ParseCtx) -> ::std::option::Option<Self> {
                 #(#field_lets)*
                 if ctx.has_errors() {
