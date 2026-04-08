@@ -1,4 +1,3 @@
-use proc_macro_crate::FoundCrate;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{Data, DataStruct, Token};
@@ -95,21 +94,10 @@ fn derive_inner(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream
         }
     });
 
-    let krate = proc_macro_crate::crate_name("env_structure")
-        .map_err(|e| syn::Error::new(proc_macro2::Span::call_site(), e))?;
-
-    let prefix = match krate {
-        FoundCrate::Itself => quote! { crate },
-        FoundCrate::Name(name) => {
-            let ident = syn::Ident::new(&name, proc_macro2::Span::call_site());
-            quote! { #ident }
-        }
-    };
-
     let name = input.ident;
     Ok(quote! {
-        impl #prefix::EnvStructure for #name {
-            fn parse(ctx: &mut #prefix::ParseCtx) -> ::std::option::Option<Self> {
+        impl env_structure::EnvStructure for #name {
+            fn parse(ctx: &mut env_structure::ParseCtx) -> ::std::option::Option<Self> {
                 #(#field_lets)*
                 if ctx.has_errors() {
                     return ::std::option::Option::None;
