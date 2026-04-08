@@ -6,4 +6,4 @@ license = "CC0-1.0"
 
 [dependencies]
 env_structure_macro = { path = "env_structure_macro" }
-thiserror = "2.0.18"
+tracing = "0.1.44"

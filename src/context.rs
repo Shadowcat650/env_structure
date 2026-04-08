@@ -6,9 +6,9 @@ use std::fmt::Display;
 
 /// Context that helps parse and report things during environment loading.
 pub struct ParseCtx<'a> {
-    errs: Vec<ParseIssue<'a>>,
-    warnings: Vec<ParseIssue<'a>>,
-    infos: Vec<ParseIssue<'a>>,
+    pub(crate) errs: Vec<ParseIssue<'a>>,
+    pub(crate) warnings: Vec<ParseIssue<'a>>,
+    pub(crate) infos: Vec<ParseIssue<'a>>,
 }
 
 impl<'a> ParseCtx<'a> {
@@ -81,7 +81,8 @@ impl<'a> ParseCtx<'a> {
             .and_then(|val| match validate(&val) {
                 Ok(_) => Some(val),
                 Err(msg) => {
-                    self.errs.push(ParseIssue::invalid_value(key, msg));
+                    self.errs
+                        .push(ParseIssue::invalid_value(key, DisplayWrapper(&val), msg));
                     None
                 }
             })
@@ -94,7 +95,8 @@ impl<'a> ParseCtx<'a> {
     {
         T::parse(env::var(key)).unwrap_or_else(|issue_kind| {
             let default = default();
-            let issue = ParseIssue::new(key, issue_kind).with_recovery(DisplayWrapper(&default).to_string());
+            let issue = ParseIssue::new(key, issue_kind)
+                .with_recovery(DisplayWrapper(&default).to_string());
             if issue.kind.is_not_found() {
                 // It's not an error to have a missing value with a default.
                 self.infos.push(issue);
@@ -122,7 +124,7 @@ impl<'a> ParseCtx<'a> {
             Ok(val) => match validate(&val) {
                 Ok(_) => val,
                 Err(msg) => {
-                    let issue = ParseIssue::invalid_value(key, msg);
+                    let issue = ParseIssue::invalid_value(key, DisplayWrapper(&val), msg);
                     self.report_and_default(issue, validate, default)
                 }
             },
@@ -147,7 +149,10 @@ impl<'a> ParseCtx<'a> {
     {
         let default = default();
         if let Err(msg) = validate(&default) {
-            let recovery = format!("default value '{}' is invalid: {msg}", DisplayWrapper(&default));
+            let recovery = format!(
+                "default value '{}' is invalid: {msg}",
+                DisplayWrapper(&default)
+            );
             self.errs.push(issue.with_recovery(recovery));
         } else {
             let recovery = format!("defaulting to '{}", DisplayWrapper(&default));

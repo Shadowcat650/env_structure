@@ -1,7 +1,7 @@
 use crate::issue::ParseIssueKind;
 use std::env::VarError;
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::num::{
     NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
@@ -24,14 +24,14 @@ impl FromEnv for bool {
         match val.as_str() {
             "true" | "TRUE" | "yes" | "YES" | "1" => Ok(true),
             "false" | "FALSE" | "no" | "NO" | "0" => Ok(false),
-            _ => Err(ParseIssueKind::invalid_value("not valid boolean")),
+            _ => Err(ParseIssueKind::invalid_value(val, "not valid boolean")),
         }
     }
 }
 
 impl EnvDisplay for PathBuf {
     fn display(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.as_path().display(), f)
+        DisplayDebugWrapper(self).fmt(f)
     }
 }
 
@@ -45,7 +45,7 @@ where
 {
     fn parse(input: Result<String, VarError>) -> Result<Self, ParseIssueKind> {
         let val = input?;
-        T::from_str(&val).map_err(|err| ParseIssueKind::invalid_value(err))
+        T::from_str(&val).map_err(|err| ParseIssueKind::invalid_value(val, err))
     }
 }
 
@@ -148,5 +148,12 @@ pub struct DisplayWrapper<'a, T: EnvDisplay>(pub &'a T);
 impl<'a, T: EnvDisplay> Display for DisplayWrapper<'a, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.display(f)
+    }
+}
+
+pub struct DisplayDebugWrapper<'a, T: Debug>(pub &'a T);
+impl<'a, T: Debug> Display for DisplayDebugWrapper<'a, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }

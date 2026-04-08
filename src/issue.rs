@@ -1,14 +1,18 @@
-use std::fmt::Display;
+use crate::from_env::DisplayDebugWrapper;
+use std::fmt::{Display, Formatter};
 
 /// The issue with the environment variable.
 pub enum ParseIssueKind {
     NotFound,
-    InvalidValue(String),
+    InvalidValue { value: String, msg: String },
 }
 
 impl ParseIssueKind {
-    pub fn invalid_value(msg: impl Display) -> Self {
-        Self::InvalidValue(msg.to_string())
+    pub fn invalid_value(value: impl Display, msg: impl Display) -> Self {
+        Self::InvalidValue {
+            value: value.to_string(),
+            msg: msg.to_string(),
+        }
     }
 
     pub fn is_not_found(&self) -> bool {
@@ -20,7 +24,9 @@ impl From<std::env::VarError> for ParseIssueKind {
     fn from(err: std::env::VarError) -> Self {
         match err {
             std::env::VarError::NotPresent => Self::NotFound,
-            std::env::VarError::NotUnicode(_) => Self::invalid_value("not valid unicode"),
+            std::env::VarError::NotUnicode(x) => {
+                Self::invalid_value(DisplayDebugWrapper(&x), "not valid unicode")
+            }
         }
     }
 }
@@ -28,13 +34,13 @@ impl From<std::env::VarError> for ParseIssueKind {
 /// An issue with an environment value.
 pub(crate) struct ParseIssue<'a> {
     /// The variable key.
-    pub var: &'a str,
+    var: &'a str,
 
     /// The kind of issue.
-    pub kind: ParseIssueKind,
+    pub(crate) kind: ParseIssueKind,
 
     /// How the issue was attempted (successfully or not) to be resolved.
-    pub recovery: Option<String>,
+    recovery: Option<String>,
 }
 
 impl<'a> ParseIssue<'a> {
@@ -46,10 +52,13 @@ impl<'a> ParseIssue<'a> {
         }
     }
 
-    pub fn invalid_value(var: &'a str, msg: impl Display) -> Self {
+    pub fn invalid_value(var: &'a str, val: impl Display, msg: impl Display) -> Self {
         Self {
             var,
-            kind: ParseIssueKind::InvalidValue(msg.to_string()),
+            kind: ParseIssueKind::InvalidValue {
+                value: val.to_string(),
+                msg: msg.to_string(),
+            },
             recovery: None,
         }
     }
@@ -57,5 +66,22 @@ impl<'a> ParseIssue<'a> {
     pub fn with_recovery(mut self, recovery: String) -> Self {
         self.recovery = Some(recovery);
         self
+    }
+}
+
+impl<'a> Display for ParseIssue<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            ParseIssueKind::NotFound => {
+                write!(f, "{} not found in environment", self.var)?;
+            }
+            ParseIssueKind::InvalidValue { value, msg } => {
+                write!(f, "{}={}; {}", self.var, value, msg)?;
+            }
+        }
+        if let Some(recovery) = &self.recovery {
+            write!(f, ": {}", recovery)?;
+        }
+        Ok(())
     }
 }
