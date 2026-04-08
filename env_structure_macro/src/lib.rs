@@ -46,12 +46,12 @@ fn derive_inner(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream
                 DneStrategy::Default(val) => match &options.validator {
                     Some(validator) => {
                         quote! {
-                           ctx.parse_validated_with_default(#uppercase, #validator, || #val.into())
+                           ctx.parse_validated_with_default(#uppercase, #validator, || (#val).into())
                         }
                     }
                     None => {
                         quote! {
-                            ctx.parse_with_default(#uppercase, || #val.into())
+                            ctx.parse_with_default(#uppercase, || (#val).into())
                         }
                     }
                 },
