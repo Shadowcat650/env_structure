@@ -155,7 +155,7 @@ impl<'a> ParseCtx<'a> {
             );
             self.errs.push(issue.with_recovery(recovery));
         } else {
-            let recovery = format!("defaulting to '{}", DisplayWrapper(&default));
+            let recovery = format!("defaulting to '{}'", DisplayWrapper(&default));
             if issue.kind.is_not_found() {
                 // It's not an error to have a missing value with a default.
                 self.infos.push(issue.with_recovery(recovery));
