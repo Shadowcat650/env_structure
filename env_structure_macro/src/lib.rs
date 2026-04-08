@@ -43,15 +43,18 @@ fn derive_inner(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream
                         }
                     }
                 }
-                DneStrategy::Default(val) => match &options.validator {
-                    Some(validator) => {
-                        quote! {
-                           ctx.parse_validated_with_default(#uppercase, #validator, || (#val).into())
+                DneStrategy::Default(val) => {
+                    let ty = &field.ty;
+                    match &options.validator {
+                        Some(validator) => {
+                            quote! {
+                                ctx.parse_validated_with_default(#uppercase, #validator, || -> #ty {(#val).into()})
+                            }
                         }
-                    }
-                    None => {
-                        quote! {
-                            ctx.parse_with_default(#uppercase, || (#val).into())
+                        None => {
+                            quote! {
+                                ctx.parse_with_default(#uppercase, || -> #ty {(#val).into()})
+                            }
                         }
                     }
                 },
