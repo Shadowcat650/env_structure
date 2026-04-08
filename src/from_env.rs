@@ -1,6 +1,7 @@
 use crate::issue::ParseIssueKind;
 use std::env::VarError;
-use std::fmt::Display;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::num::{
     NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize, NonZeroU8,
@@ -9,8 +10,12 @@ use std::num::{
 use std::path::PathBuf;
 use std::str::FromStr;
 
-pub trait FromEnv: Sized + Display {
+pub trait FromEnv: EnvDisplay + Sized {
     fn parse(input: Result<String, VarError>) -> Result<Self, ParseIssueKind>;
+}
+
+pub(crate) trait EnvDisplay {
+    fn display(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 }
 
 impl FromEnv for bool {
@@ -24,11 +29,17 @@ impl FromEnv for bool {
     }
 }
 
+impl EnvDisplay for PathBuf {
+    fn display(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.as_path().display(), f)
+    }
+}
+
 // Automatic implementations.
 
 trait ParseFromStr {}
 
-impl<T: FromStr + Display + ParseFromStr> FromEnv for T
+impl<T: FromStr + EnvDisplay + ParseFromStr> FromEnv for T
 where
     <T as FromStr>::Err: Display,
 {
@@ -80,3 +91,62 @@ impl_from_env_via_fromstr!(
     NonZeroU128,
     NonZeroUsize
 );
+
+trait ParseFromDisplay {}
+
+impl<T: Display + ParseFromDisplay> EnvDisplay for T {
+    fn display(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        <T as Display>::fmt(self, f)
+    }
+}
+
+macro_rules! impl_env_display_via_display {
+    ($($t:ty),*) => {
+        $(impl ParseFromDisplay for $t {})*
+    };
+}
+
+impl_env_display_via_display!(
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize,
+    f32,
+    f64,
+    bool,
+    String,
+    IpAddr,
+    Ipv4Addr,
+    Ipv6Addr,
+    SocketAddr,
+    SocketAddrV4,
+    SocketAddrV6,
+    NonZeroI8,
+    NonZeroI16,
+    NonZeroI32,
+    NonZeroI64,
+    NonZeroI128,
+    NonZeroIsize,
+    NonZeroU8,
+    NonZeroU16,
+    NonZeroU32,
+    NonZeroU64,
+    NonZeroU128,
+    NonZeroUsize
+);
+
+pub struct DisplayWrapper<'a, T: EnvDisplay>(pub &'a T);
+
+impl<'a, T: EnvDisplay> Display for DisplayWrapper<'a, T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.0.display(f)
+    }
+}
