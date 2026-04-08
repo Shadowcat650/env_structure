@@ -26,8 +26,10 @@ fn derive_inner(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream
             let uppercase = field.name.to_string().to_uppercase();
             let parse = match &options.dne_strategy {
                 DneStrategy::Require | DneStrategy::Optional => {
-                    let strat = &options.dne_strategy;
-                    let optional = matches!(DneStrategy::Optional, strat);
+                    let optional = match options.dne_strategy {
+                        DneStrategy::Optional => true,
+                        _ => false,
+                    };
                     match &options.validator {
                         Some(validator) => {
                             quote! {
