@@ -110,7 +110,7 @@ impl EnvEnum {
                 quote::quote! {
                     let ::std::option::Option::Some(key) = ctx.parse(#key_lit, false) else {
                         return ::std::option::Option::None;
-                    }
+                    };
                 }
             }
         }
