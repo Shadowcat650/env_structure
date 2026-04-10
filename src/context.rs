@@ -96,7 +96,7 @@ impl<'a> ParseCtx<'a> {
         T::parse(env::var(key)).unwrap_or_else(|issue_kind| {
             let default = default();
             let issue = ParseIssue::new(key, issue_kind)
-                .with_recovery(DisplayWrapper(&default).to_string());
+                .with_recovery(format!("defaulting to '{}'", DisplayWrapper(&default)));
             if issue.kind.is_not_found() {
                 // It's not an error to have a missing value with a default.
                 self.infos.push(issue);
