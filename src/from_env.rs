@@ -14,7 +14,7 @@ pub trait FromEnv: EnvDisplay + Sized {
     fn parse(input: Result<String, VarError>) -> Result<Self, ParseIssueKind>;
 }
 
-pub(crate) trait EnvDisplay {
+pub trait EnvDisplay {
     fn display(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 }
 

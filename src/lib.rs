@@ -8,7 +8,7 @@ pub trait EnvStructure: Sized {
 
 pub use context::ParseCtx;
 pub use env_structure_macro::EnvStructure;
-pub use from_env::FromEnv;
+pub use from_env::{EnvDisplay, FromEnv};
 pub use issue::ParseIssueKind;
 use std::fmt::Formatter;
 

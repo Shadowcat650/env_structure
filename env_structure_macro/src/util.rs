@@ -25,3 +25,17 @@ pub fn extract_optional_type(ty: syn::Type) -> (syn::Type, bool) {
 
     (ty, false)
 }
+
+pub fn make_env_struct_impl(
+    name: syn::Ident,
+    parse_inner: impl quote::ToTokens,
+) -> proc_macro2::TokenStream {
+    quote::quote! {
+        #[automatically_derived]
+        impl ::env_structure::EnvStructure for #name {
+            fn parse(ctx: &mut ::env_structure::ParseCtx) -> ::std::option::Option<Self> {
+                #parse_inner
+            }
+        }
+    }
+}

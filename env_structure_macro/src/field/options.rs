@@ -44,4 +44,11 @@ impl FieldOptions {
             FieldOptions::Nested(opts) => opts.needs_unwrap(),
         }
     }
+
+    pub fn is_optional(&self) -> bool {
+        match self {
+            FieldOptions::KeyValue(opts) => opts.is_optional(),
+            FieldOptions::Nested(opts) => opts.is_optional(),
+        }
+    }
 }

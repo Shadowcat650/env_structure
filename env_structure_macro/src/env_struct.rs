@@ -1,8 +1,9 @@
 use crate::field::Field;
+use crate::util::make_env_struct_impl;
 
 pub struct EnvStruct {
-    name: syn::Ident,
-    fields: Vec<Field>,
+    pub name: syn::Ident,
+    pub fields: Vec<Field>,
 }
 
 impl EnvStruct {
@@ -14,25 +15,24 @@ impl EnvStruct {
         Ok(Self { name, fields })
     }
 
-    pub fn to_impl(self) -> proc_macro2::TokenStream {
+    pub fn to_env_struct_impl(self) -> proc_macro2::TokenStream {
         let name = self.name;
         let bindings = self.fields.iter().map(|f| f.get_parse_binding_tokens());
         let stores = self
             .fields
             .iter()
             .map(|f| f.get_struct_construction_field_tokens());
-        quote::quote! {
-            impl ::env_structure::EnvStructure for #name {
-                fn parse(ctx: &mut ::env_structure::ParseCtx) -> ::std::option::Option<Self> {
-                    #(#bindings)*
-                    if ctx.has_errors() {
-                        return ::std::option::Option::None;
-                    }
-                    ::std::option::Option::Some(Self {
-                        #(#stores),*
-                    })
-                }
+
+        let parse_inner = quote::quote! {
+            #(#bindings)*
+            if ctx.has_errors() {
+                return ::std::option::Option::None;
             }
-        }
+            ::std::option::Option::Some(Self {
+                #(#stores),*
+            })
+        };
+
+        make_env_struct_impl(name, parse_inner)
     }
 }

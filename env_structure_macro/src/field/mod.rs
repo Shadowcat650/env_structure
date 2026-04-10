@@ -9,10 +9,10 @@ mod options;
 /// Data describing how a field should load from its environment.
 pub struct Field {
     /// The name of the field.
-    name: syn::Ident,
+    pub name: syn::Ident,
 
     /// The non-optional datatype of the field.
-    concrete_type: syn::Type,
+    pub concrete_type: syn::Type,
 
     /// The specific options related to how to get field data (and what the field represents).
     options: FieldOptions,
@@ -58,5 +58,9 @@ impl Field {
                 #name
             }
         }
+    }
+
+    pub fn is_optional(&self) -> bool {
+        self.options.is_optional()
     }
 }

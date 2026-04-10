@@ -76,4 +76,8 @@ impl NestedFieldOptions {
     pub fn needs_unwrap(&self) -> bool {
         self.condition.is_none()
     }
+
+    pub fn is_optional(&self) -> bool {
+        self.condition.is_some()
+    }
 }

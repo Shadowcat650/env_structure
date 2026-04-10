@@ -62,12 +62,12 @@ impl KeyValueFieldOptions {
             DneStrategy::Default(default) => match &self.validator {
                 Some(validator) => {
                     quote! {
-                        ctx.parse_validated_with_default(#key, #validator, || {(#default).into()})
+                        ctx.parse_validated_with_default(#key, #validator, || (#default).into())
                     }
                 }
                 None => {
                     quote! {
-                        ctx.parse_with_default(#key, || {(#default).into()})
+                        ctx.parse_with_default(#key, || (#default).into())
                     }
                 }
             },
@@ -91,5 +91,9 @@ impl KeyValueFieldOptions {
 
     pub fn needs_unwrap(&self) -> bool {
         matches!(self.dne_strategy, DneStrategy::Require)
+    }
+
+    pub fn is_optional(&self) -> bool {
+        matches!(self.dne_strategy, DneStrategy::Optional)
     }
 }
