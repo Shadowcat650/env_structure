@@ -1,16 +1,13 @@
 mod context;
-mod from_env;
 mod issue;
-
-pub trait EnvStructure: Sized {
-    fn parse(ctx: &mut ParseCtx) -> Option<Self>;
-}
+mod traits;
+mod utils;
 
 pub use context::ParseCtx;
 pub use env_structure_macro::EnvStructure;
-pub use from_env::{EnvDisplay, FromEnv};
 pub use issue::ParseIssueKind;
 use std::fmt::Formatter;
+pub use traits::*;
 
 #[derive(Debug)]
 pub struct EnvLoadError;

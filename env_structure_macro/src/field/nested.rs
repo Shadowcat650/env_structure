@@ -42,6 +42,12 @@ impl NestedFieldOptions {
     }
 
     fn assert_only_nested_attrs(attrs: &Attrs) -> syn::Result<()> {
+        if let Some(attr) = &attrs.secret {
+            return Err(syn::Error::new(
+                attr.span,
+                "invalid attribute `secret` on nested field",
+            ));
+        }
         if let Some(attr) = &attrs.default {
             return Err(syn::Error::new(
                 attr.span,

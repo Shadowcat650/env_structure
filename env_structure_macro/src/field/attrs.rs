@@ -3,9 +3,14 @@ use syn::parse::{Parse, ParseStream};
 
 pub struct Attrs {
     pub nested: bool,
+    pub secret: Option<SecretAttr>,
     pub default: Option<DefaultAttr>,
     pub validator: Option<ValidatorAttr>,
     pub required_if: Option<RequiredIfAttr>,
+}
+
+pub struct SecretAttr {
+    pub span: proc_macro2::Span,
 }
 
 pub struct DefaultAttr {
@@ -27,6 +32,7 @@ impl Attrs {
     fn empty() -> Self {
         Self {
             nested: false,
+            secret: None,
             default: None,
             validator: None,
             required_if: None,
@@ -48,6 +54,9 @@ impl Attrs {
 
     fn merge_all(mut self, other: Self) -> syn::Result<Self> {
         self.nested |= other.nested;
+        if let Some(val) = other.secret {
+            self.merge_secret(val)?;
+        }
         if let Some(val) = other.default {
             self.merge_default(val)?;
         }
@@ -58,6 +67,14 @@ impl Attrs {
             self.merge_required_if(val)?;
         }
         Ok(self)
+    }
+
+    fn merge_secret(&mut self, val: SecretAttr) -> syn::Result<()> {
+        if self.secret.is_some() {
+            return Err(syn::Error::new(val.span, "duplicate `secret` attribute"));
+        }
+        self.secret = Some(val);
+        Ok(())
     }
 
     fn merge_default(&mut self, val: DefaultAttr) -> syn::Result<()> {
@@ -98,6 +115,7 @@ impl Parse for Attrs {
                 "nested" => attrs.nested = true,
 
                 // Non-flag attributes.
+                "secret" => attrs.merge_secret(SecretAttr { span: ident.span() })?,
                 "default" => {
                     input.parse::<Token![=]>()?;
                     let expr = input.parse()?;

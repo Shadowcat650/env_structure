@@ -1,6 +1,5 @@
 use crate::util::make_env_struct_impl;
 use crate::variant::Variant;
-use proc_macro2::Ident;
 use std::collections::HashSet;
 use syn::Token;
 use syn::parse::ParseStream;
@@ -77,19 +76,18 @@ impl EnvEnum {
                 #(#variants),*
             }
             impl ::env_structure::FromEnv for __Key {
-                fn parse(input: ::std::result::Result<::std::string::String, ::std::env::VarError>) -> ::std::result::Result<Self, ::env_structure::ParseIssueKind> {
-                    let input = input?;
-                    match input.as_str() {
+                fn parse(ctx: ::env_structure::FromEnvCtx) -> ::env_structure::FromEnvResult<Self> {
+                    ctx.parse_from_str(|val| match val.as_str() {
                         #(#parse_variants,)*
-                        _ => std::result::Result::Err(::env_structure::ParseIssueKind::InvalidValue {
-                            value: input,
-                            msg: #discriminant_error.to_string()
-                        })
-                    }
+                        _ => ::std::result::Result::Err(::env_structure::InvalidValueError::new(
+                            val,
+                            #discriminant_error
+                        ))
+                    })
                 }
             }
             impl ::env_structure::EnvDisplay for __Key {
-                fn display(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                fn display(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                     match self {
                         #(#display_variants),*
                     }
@@ -103,12 +101,12 @@ impl EnvEnum {
         match &self.default {
             Some(variant) => {
                 quote::quote! {
-                    let key = ctx.parse_with_default(#key_lit, || __Key::#variant);
+                    let key = ctx.parse_with_default(#key_lit, || __Key::#variant, false);
                 }
             }
             None => {
                 quote::quote! {
-                    let ::std::option::Option::Some(key) = ctx.parse(#key_lit, false) else {
+                    let ::std::option::Option::Some(key) = ctx.parse(#key_lit, false, false) else {
                         return ::std::option::Option::None;
                     };
                 }

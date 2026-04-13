@@ -2,6 +2,9 @@ use crate::field::attrs::Attrs;
 use quote::quote;
 
 pub struct KeyValueFieldOptions {
+    /// Is the value a secret?
+    is_secret: bool,
+
     /// What to do when the key is missing or invalid.
     dne_strategy: DneStrategy,
 
@@ -39,6 +42,7 @@ impl KeyValueFieldOptions {
         };
 
         Ok(Self {
+            is_secret: attrs.secret.is_some(),
             dne_strategy,
             validator: attrs.validator.map(|v| v.expr),
         })
@@ -59,31 +63,41 @@ impl KeyValueFieldOptions {
         match &self.dne_strategy {
             DneStrategy::Require => self.non_default_parse_tokens(key, false),
             DneStrategy::Optional => self.non_default_parse_tokens(key, true),
-            DneStrategy::Default(default) => match &self.validator {
-                Some(validator) => {
-                    quote! {
-                        ctx.parse_validated_with_default(#key, #validator, || (#default).into())
+            DneStrategy::Default(default) => {
+                let secret = self.is_secret;
+                match &self.validator {
+                    Some(validator) => {
+                        quote! {
+                            ctx.parse_validated_with_default(#key, #validator, || (#default).into(), #secret)
+                        }
+                    }
+                    None => {
+                        quote! {
+                            ctx.parse_with_default(#key, || (#default).into(), #secret)
+                        }
                     }
                 }
-                None => {
-                    quote! {
-                        ctx.parse_with_default(#key, || (#default).into())
-                    }
-                }
-            },
+            }
         }
     }
 
     fn non_default_parse_tokens(&self, key: String, optional: bool) -> proc_macro2::TokenStream {
         match &self.validator {
             Some(validator) => {
-                quote! {
-                    ctx.parse_validated(#key, #validator, #optional)
+                if self.is_secret {
+                    quote! {
+                        ctx.parse_validated_secret(#key, #validator, #optional)
+                    }
+                } else {
+                    quote! {
+                        ctx.parse_validated(#key, #validator, #optional)
+                    }
                 }
             }
             None => {
+                let secret = self.is_secret;
                 quote! {
-                    ctx.parse(#key, #optional)
+                    ctx.parse(#key, #optional, #secret)
                 }
             }
         }

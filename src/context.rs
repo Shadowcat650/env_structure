@@ -1,7 +1,6 @@
-use crate::EnvStructure;
-use crate::from_env::{DisplayWrapper, FromEnv};
 use crate::issue::ParseIssue;
-use std::env;
+use crate::traits::{EnvDisplay, EnvStructure, FromEnv, FromEnvCtx};
+use crate::utils::DisplayWrapper;
 use std::fmt::Display;
 
 /// Context that helps parse and report things during environment loading.
@@ -12,7 +11,8 @@ pub struct ParseCtx<'a> {
 }
 
 impl<'a> ParseCtx<'a> {
-    pub fn new() -> Self {
+    /// Creates an empty [`ParseCtx`].
+    pub const fn new() -> Self {
         Self {
             errs: Vec::new(),
             warnings: Vec::new(),
@@ -20,8 +20,8 @@ impl<'a> ParseCtx<'a> {
         }
     }
 
-    /// Returns `true` if the context found an error.
-    pub fn has_errors(&self) -> bool {
+    /// Returns `true` if the context contains any errors.
+    pub const fn has_errors(&self) -> bool {
         !self.errs.is_empty()
     }
 
@@ -42,7 +42,7 @@ impl<'a> ParseCtx<'a> {
 
     /// Parses a nested [`EnvStruct`] if the condition env variable is `true`.
     pub fn parse_nested_if<T: EnvStructure>(&mut self, cond: &'a str) -> Option<T> {
-        let cond = self.parse_with_default(cond, || false);
+        let cond = self.parse_with_default(cond, || false, false);
         if cond {
             let mut child = Self::new();
             let nested = T::parse(&mut child);
@@ -53,8 +53,8 @@ impl<'a> ParseCtx<'a> {
     }
 
     /// Parses an environment value.
-    pub fn parse<T: FromEnv>(&mut self, key: &'a str, optional: bool) -> Option<T> {
-        match T::parse(env::var(key)) {
+    pub fn parse<T: FromEnv>(&mut self, key: &'a str, optional: bool, secret: bool) -> Option<T> {
+        match FromEnvCtx::new(key, secret).parse() {
             Ok(val) => Some(val),
             Err(issue_kind) => {
                 if issue_kind.is_not_found() && optional {
@@ -67,7 +67,7 @@ impl<'a> ParseCtx<'a> {
     }
 
     /// Parses an environment value and ensures it is valid.
-    pub fn parse_validated<T: FromEnv, V, E>(
+    pub fn parse_validated<T: FromEnv + EnvDisplay, V, E>(
         &mut self,
         key: &'a str,
         validate: V,
@@ -77,54 +77,101 @@ impl<'a> ParseCtx<'a> {
         V: Fn(&T) -> Result<(), E>,
         E: Display,
     {
-        self.parse(key, optional)
+        self.parse_validated_core(key, validate, optional, false, |v| {
+            DisplayWrapper(&v).to_string()
+        })
+    }
+
+    pub fn parse_validated_secret<T: FromEnv, V, E>(
+        &mut self,
+        key: &'a str,
+        validate: V,
+        optional: bool,
+    ) -> Option<T>
+    where
+        V: Fn(&T) -> Result<(), E>,
+        E: Display,
+    {
+        self.parse_validated_core(key, validate, optional, true, |_| "<REDACTED>".into())
+    }
+
+    fn parse_validated_core<T: FromEnv, V, E>(
+        &mut self,
+        key: &'a str,
+        validate: V,
+        optional: bool,
+        secret: bool,
+        display: fn(T) -> String,
+    ) -> Option<T>
+    where
+        V: Fn(&T) -> Result<(), E>,
+        E: Display,
+    {
+        self.parse(key, optional, secret)
             .and_then(|val| match validate(&val) {
                 Ok(_) => Some(val),
                 Err(msg) => {
-                    self.errs
-                        .push(ParseIssue::invalid_value(key, DisplayWrapper(&val), msg));
+                    let issue = ParseIssue::invalid_value(key, display(val), msg.to_string());
+                    self.errs.push(issue);
                     None
                 }
             })
     }
 
     /// Parses an environment value and inserts a default one if it is missing or invalid.
-    pub fn parse_with_default<T: FromEnv, D>(&mut self, key: &'a str, default: D) -> T
+    ///
+    /// The default value is not treated as secret, but the env variable is protected when secret is `true`.
+    pub fn parse_with_default<T: FromEnv + EnvDisplay, D>(
+        &mut self,
+        key: &'a str,
+        default: D,
+        secret: bool,
+    ) -> T
     where
         D: FnOnce() -> T,
     {
-        T::parse(env::var(key)).unwrap_or_else(|issue_kind| {
-            let default = default();
-            let issue = ParseIssue::new(key, issue_kind)
-                .with_recovery(format!("defaulting to '{}'", DisplayWrapper(&default)));
-            if issue.kind.is_not_found() {
-                // It's not an error to have a missing value with a default.
-                self.infos.push(issue);
-            } else {
-                self.warnings.push(issue);
-            }
-            default
-        })
+        FromEnvCtx::new(key, secret)
+            .parse()
+            .unwrap_or_else(|issue_kind| {
+                let default = default();
+                let issue = ParseIssue::new(key, issue_kind)
+                    .with_recovery(format!("defaulting to '{}'", DisplayWrapper(&default)));
+                if issue.kind.is_not_found() {
+                    // It's not an error to have a missing value with a default.
+                    self.infos.push(issue);
+                } else {
+                    self.warnings.push(issue);
+                }
+                default
+            })
     }
 
     /// Parses and validates an environment value and inserts a default if its missing or invalid.
+    ///
+    /// The default value is not treated as secret, but the env variable is protected when secret is `true`.
     pub fn parse_validated_with_default<T, V, E, D>(
         &mut self,
         key: &'a str,
         validate: V,
         default: D,
+        secret: bool,
     ) -> T
     where
-        T: FromEnv,
+        T: FromEnv + EnvDisplay,
         V: Fn(&T) -> Result<(), E>,
         E: Display,
         D: FnOnce() -> T,
     {
-        match T::parse(env::var(key)) {
+        match FromEnvCtx::new(key, secret).parse() {
             Ok(val) => match validate(&val) {
                 Ok(_) => val,
                 Err(msg) => {
-                    let issue = ParseIssue::invalid_value(key, DisplayWrapper(&val), msg);
+                    let val = if secret {
+                        "<REDACTED>".into()
+                    } else {
+                        DisplayWrapper(&val).to_string()
+                    };
+                    let issue = ParseIssue::invalid_value(key, val, msg.to_string());
                     self.report_and_default(issue, validate, default)
                 }
             },
@@ -135,14 +182,14 @@ impl<'a> ParseCtx<'a> {
     }
 
     /// Properly reports and sets a default value of a validated environment var.
-    pub fn report_and_default<T, V, E, D>(
+    fn report_and_default<T, V, E, D>(
         &mut self,
         issue: ParseIssue<'a>,
         validate: V,
         default: D,
     ) -> T
     where
-        T: FromEnv,
+        T: FromEnv + EnvDisplay,
         V: Fn(&T) -> Result<(), E>,
         E: Display,
         D: FnOnce() -> T,

@@ -1,4 +1,4 @@
-use crate::from_env::DisplayDebugWrapper;
+use crate::utils::DisplayDebugWrapper;
 use std::fmt::{Display, Formatter};
 
 /// The issue with the environment variable.
@@ -52,13 +52,10 @@ impl<'a> ParseIssue<'a> {
         }
     }
 
-    pub fn invalid_value(var: &'a str, val: impl Display, msg: impl Display) -> Self {
+    pub fn invalid_value(var: &'a str, val: String, msg: String) -> Self {
         Self {
             var,
-            kind: ParseIssueKind::InvalidValue {
-                value: val.to_string(),
-                msg: msg.to_string(),
-            },
+            kind: ParseIssueKind::InvalidValue { value: val, msg },
             recovery: None,
         }
     }
